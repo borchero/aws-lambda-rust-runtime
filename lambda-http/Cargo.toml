@@ -23,6 +23,7 @@ apigw_websockets = []
 alb = []
 pass_through = []
 tracing = ["lambda_runtime/tracing"]
+opentelemetry = ["lambda_runtime/opentelemetry", "dep:opentelemetry-semantic-conventions"]
 
 [dependencies]
 base64 = { workspace = true }
@@ -35,6 +36,7 @@ http-body = { workspace = true }
 http-body-util = { workspace = true }
 hyper = { workspace = true }
 lambda_runtime = { version = "0.10.0", path = "../lambda-runtime" }
+opentelemetry-semantic-conventions = { version = "0.14", optional = true }
 mime = "0.3"
 percent-encoding = "2.2"
 pin-project-lite = { workspace = true }

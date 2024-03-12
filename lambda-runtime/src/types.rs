@@ -3,6 +3,8 @@ use base64::prelude::*;
 use bytes::Bytes;
 use http::{header::ToStrError, HeaderMap, HeaderValue, StatusCode};
 use lambda_runtime_api_client::body::Body;
+#[cfg(feature = "opentelemetry")]
+use opentelemetry_semantic_conventions::trace as traceconv;
 use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
@@ -212,20 +214,37 @@ impl Context {
 
     /// Create a new [`tracing::Span`] for an incoming invocation.
     pub(crate) fn request_span(&self) -> Span {
+        let span = self.request_span_skeleton();
         match &self.xray_trace_id {
             Some(trace_id) => {
                 env::set_var("_X_AMZN_TRACE_ID", trace_id);
-                tracing::info_span!(
-                    "Lambda runtime invoke",
-                    requestId = &self.request_id,
-                    xrayTraceId = trace_id
-                )
+                span.record("xRayTraceId", trace_id);
             }
             None => {
                 env::remove_var("_X_AMZN_TRACE_ID");
-                tracing::info_span!("Lambda runtime invoke", requestId = &self.request_id)
             }
         }
+        span
+    }
+
+    #[cfg(not(feature = "opentelemetry"))]
+    fn request_span_skeleton(&self) -> Span {
+        tracing::info_span!(
+            "Lambda runtime invoke",
+            requestId = &self.request_id,
+            xRayTraceId = tracing::field::Empty,
+        )
+    }
+
+    #[cfg(feature = "opentelemetry")]
+    fn request_span_skeleton(&self) -> Span {
+        tracing::info_span!(
+            "Lambda runtime invoke",
+            "otel.name" = &self.env_config.function_name,
+            { traceconv::FAAS_INVOCATION_ID } = &self.request_id,
+            { traceconv::FAAS_COLDSTART } = false,
+            { traceconv::FAAS_TRIGGER } = tracing::field::Empty,
+        )
     }
 }
 

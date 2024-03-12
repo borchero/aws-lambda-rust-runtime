@@ -69,6 +69,8 @@ pub use http::{self, Response};
 #[cfg(feature = "tracing")]
 pub use lambda_runtime::tracing;
 pub use lambda_runtime::{self, service_fn, tower, Context, Error, LambdaEvent, Service};
+#[cfg(feature = "opentelemetry")]
+use opentelemetry_semantic_conventions::trace as traceconv;
 use request::RequestFuture;
 use response::ResponseFuture;
 
@@ -175,6 +177,10 @@ where
     }
 
     fn call(&mut self, req: LambdaEvent<LambdaRequest>) -> Self::Future {
+        #[cfg(feature = "opentelemetry")]
+        {
+            tracing::Span::current().record(traceconv::FAAS_TRIGGER, "http");
+        }
         let request_origin = req.payload.request_origin();
         let event: Request = req.payload.into();
         let fut = Box::pin(self.service.call(event.with_lambda_context(req.context)));
